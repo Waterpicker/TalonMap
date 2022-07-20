@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "me.talonos.talonmap.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "GeneratorTypeAccessor",
+    "MinecraftServerMixin"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

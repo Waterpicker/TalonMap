@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "talonmap",
+  "version": "${version}",
+  "name": "TalonMap",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/talonmap/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "me.talonos.talonmap.client.TalonmapClient"
+    ],
+    "main": [
+      "me.talonos.talonmap.Talonmap"
+    ]
+  },
+  "mixins": [
+    "talonmap.mixins.json"
+  ],
+  "accessWidener": "talonmap.accesswidener",
+  "depends": {
+    "fabricloader": ">=0.14.8",
+    "fabric": "*",
+    "minecraft": "1.16.5"
+  }
+}
