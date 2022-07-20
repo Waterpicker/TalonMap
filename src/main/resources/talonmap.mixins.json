@@ -4,8 +4,6 @@
   "package": "me.talonos.talonmap.mixin",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "GeneratorTypeAccessor",
-    "MinecraftServerMixin"
   ],
   "client": [
   ],

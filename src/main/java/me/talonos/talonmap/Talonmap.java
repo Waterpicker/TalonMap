@@ -17,10 +17,6 @@ public class Talonmap implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        ServerLifecycleEvents.SERVER_STARTING.register(a -> {
-            System.out.println("I am a BIG DERP");
-            setPath(((ServerExtension) a).getServerResourceManager());
-        });
 //        CommandRegistrationCallback.EVENT.register(a -> {
 //            a.register(CommandManager.literal("sl-getBiomes").executes(b -> {
 //                Entity entity = b.getSource().getEntityOrThrow();
@@ -41,8 +37,4 @@ public class Talonmap implements ModInitializer {
             ImageChunkGenerator.init();
             ImageBiomeSource.init();
         };
-
-    private static void setPath(ServerResourceManager manager) {
-        Talonmap.directory = manager;
-    }
 }
