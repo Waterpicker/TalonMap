@@ -1,19 +1,12 @@
 package me.talonos.talonmap.world;
 
-import com.mojang.datafixers.kinds.Applicative;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import me.talonos.talonmap.lib.ImageUtil;
-import net.minecraft.block.Block;
+import me.talonos.talonmap.data.ImageData;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.structure.StructureManager;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.registry.DynamicRegistryManager;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.ChunkRegion;
@@ -28,11 +21,9 @@ import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
 import net.minecraft.world.gen.chunk.NoiseChunkGenerator;
 import net.minecraft.world.gen.chunk.VerticalBlockSample;
-import org.jetbrains.annotations.Nullable;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class ImageChunkGenerator extends NoiseChunkGenerator {
@@ -42,13 +33,14 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
             instance.group((BiomeSource.CODEC.fieldOf("biome_source")).forGetter(noiseChunkGenerator -> noiseChunkGenerator.populationSource),
                     Codec.LONG.fieldOf("seed").stable().forGetter(noiseChunkGenerator -> noiseChunkGenerator.seed),
                     ChunkGeneratorSettings.REGISTRY_CODEC.fieldOf("settings").forGetter(noiseChunkGenerator -> noiseChunkGenerator.settings),
-                    Codec.STRING.fieldOf("data").forGetter(a -> a.data)).apply(instance, instance.stable(ImageChunkGenerator::new)));
+                    ImageData.CODEC.fieldOf("data").forGetter(a -> a.data))
+                    .apply(instance, instance.stable(ImageChunkGenerator::new)));
     private short[][] heightMapArray;
-    private String data;
+    private ImageData data;
 
-    public ImageChunkGenerator(BiomeSource biomeSource, long seed, Supplier<ChunkGeneratorSettings> settings, String data) {
+    public ImageChunkGenerator(BiomeSource biomeSource, long seed, Supplier<ChunkGeneratorSettings> settings, ImageData data) {
         super(biomeSource, seed, settings);
-        heightMapArray = heightMapFromGrayscaleImage(ImageUtil.loadImage(data));
+        heightMapArray = heightMapFromGrayscaleImage(data.image("heightmap"));
         this.data = data;
     }
 

@@ -6,14 +6,19 @@ import me.talonos.talonmap.world.ImageChunkGenerator;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.Entity;
 import net.minecraft.resource.ServerResourceManager;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Heightmap;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 public class Talonmap implements ModInitializer {
-    public static ServerResourceManager directory;
+    public static Path imageFolder;
 
     @Override
     public void onInitialize() {
@@ -34,7 +39,14 @@ public class Talonmap implements ModInitializer {
 //                return 1;
 //            }));
 
-            ImageChunkGenerator.init();
-            ImageBiomeSource.init();
-        };
+        imageFolder = FabricLoader.getInstance().getGameDir().resolve("talonmap_images");
+        try {
+            if(!Files.exists(imageFolder)) Files.createDirectory(imageFolder);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        ImageChunkGenerator.init();
+        ImageBiomeSource.init();
+    };
 }

@@ -10,9 +10,6 @@
   "icon": "assets/talonmap/icon.png",
   "environment": "*",
   "entrypoints": {
-    "client": [
-      "me.talonos.talonmap.client.TalonmapClient"
-    ],
     "main": [
       "me.talonos.talonmap.Talonmap"
     ]
