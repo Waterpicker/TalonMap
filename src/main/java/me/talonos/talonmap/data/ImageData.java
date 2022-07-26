@@ -20,7 +20,7 @@ public class ImageData {
     String url;
     String id;
 
-    public BufferedImage image(String type) {
-        return ImageUtil.loadImage(id, type, url);
-    };
+//    public BufferedImage image(String type) {
+//        return ImageUtil.loadImage(id, type, url);
+//    };
 }

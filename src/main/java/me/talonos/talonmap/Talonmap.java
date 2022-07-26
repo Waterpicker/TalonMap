@@ -1,52 +1,42 @@
 package me.talonos.talonmap;
 
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import me.talonos.talonmap.lib.ServerExtension;
 import me.talonos.talonmap.world.ImageBiomeSource;
 import me.talonos.talonmap.world.ImageChunkGenerator;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.entity.Entity;
+import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.resource.ResourceType;
 import net.minecraft.resource.ServerResourceManager;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.Heightmap;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.profiler.Profiler;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 public class Talonmap implements ModInitializer {
-    public static Path imageFolder;
+    private static ServerResourceManager manager = null;
 
     @Override
     public void onInitialize() {
-//        CommandRegistrationCallback.EVENT.register(a -> {
-//            a.register(CommandManager.literal("sl-getBiomes").executes(b -> {
-//                Entity entity = b.getSource().getEntityOrThrow();
-//
-//                BlockPos pos = entity.getBlockPos();
-//
-//                for (int x = 0; x < 5; x++) {
-//                    for (int z = 0; z < 5; z++) {
-//                        int y = entity.getEntityWorld().getTopY(Heightmap.Type.OCEAN_FLOOR_WG)pos.add(x,0, z);
-//                    }
-//                }
-//
-//                entity.getEntityWorld().getBiomeAccess().
-//
-//                return 1;
-//            }));
-
-        imageFolder = FabricLoader.getInstance().getGameDir().resolve("talonmap_images");
-        try {
-            if(!Files.exists(imageFolder)) Files.createDirectory(imageFolder);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        ResourceManagerHelper.get(ResourceType.SERVER_DATA).registerReloadListener(ImagesLoader.INSTANCE);
+        ServerLifecycleEvents.SERVER_STARTING.register(s -> ((ServerExtension) s).getServerResourceManager());
+        ServerLifecycleEvents.START_DATA_PACK_RELOAD.register((s, resourceManager) -> setResourceManager(resourceManager));
+        ServerLifecycleEvents.SERVER_STOPPING.register(s -> setResourceManager(null));
 
         ImageChunkGenerator.init();
         ImageBiomeSource.init();
     };
+
+    public static Optional<ServerResourceManager> getServerResourceManager() {
+        return Optional.ofNullable(manager);
+    }
+
+    private static void setResourceManager(ServerResourceManager server) {
+        Talonmap.manager = server;
+    }
 }

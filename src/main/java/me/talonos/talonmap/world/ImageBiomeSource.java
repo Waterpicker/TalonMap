@@ -2,10 +2,10 @@ package me.talonos.talonmap.world;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import it.unimi.dsi.fastutil.ints.Int2ShortArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2ShortArrayMap;
 import it.unimi.dsi.fastutil.shorts.Short2ObjectArrayMap;
-import me.talonos.talonmap.data.ImageData;
+import me.talonos.talonmap.ImagesLoader;
+import me.talonos.talonmap.lib.ImageUtil;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.dynamic.RegistryLookupCodec;
 import net.minecraft.util.registry.Registry;
@@ -19,23 +19,21 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class ImageBiomeSource extends BiomeSource {
     private static final Codec<RegistryKey<Biome>> BIOME_KEY_CODEC = Identifier.CODEC.xmap(RegistryKey.createKeyFactory(Registry.BIOME_KEY), RegistryKey::getValue);
 
     public static final Codec<ImageBiomeSource> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            ImageData.CODEC.fieldOf("data").forGetter(a -> a.data),
+            Identifier.CODEC.fieldOf("image").forGetter(a -> a.image),
             Codec.unboundedMap(Codec.STRING.xmap(Color::decode, ImageBiomeSource::colourToString), BIOME_KEY_CODEC).fieldOf("mappings").forGetter(a -> a.mappings),
             BIOME_KEY_CODEC.optionalFieldOf("filler", BiomeKeys.THE_VOID).forGetter(a -> a.filler),
             RegistryLookupCodec.of(Registry.BIOME_KEY).forGetter(vanillaLayeredBiomeSource -> vanillaLayeredBiomeSource.biomeRegistry))
             .apply(instance, ImageBiomeSource::new));
     private final Biome biomeFiller;
-    private ImageData data;
+    private Identifier image;
     private Map<Color, RegistryKey<Biome>> mappings;
     private final RegistryKey<Biome> filler;
 
@@ -46,9 +44,9 @@ public class ImageBiomeSource extends BiomeSource {
 
     private Registry<Biome> biomeRegistry;
 
-    public ImageBiomeSource(ImageData data, Map<Color, RegistryKey<Biome>> mappings, RegistryKey<Biome> filler, Registry<Biome> biomeRegistry) {
+    public ImageBiomeSource(Identifier image, Map<Color, RegistryKey<Biome>> mappings, RegistryKey<Biome> filler, Registry<Biome> biomeRegistry) {
         super(Stream.concat(mappings.values().stream(), Stream.of(filler)).map(registryKey -> () -> biomeRegistry.getOrThrow(registryKey)));
-        this.data = data;
+        this.image = image;
         this.mappings = mappings;
         this.biomeRegistry = biomeRegistry;
 
@@ -64,10 +62,10 @@ public class ImageBiomeSource extends BiomeSource {
             talonMapInternalBiomeId++;
         }
 
-        biomeArray = biomesFromColorImage(data.image("biomes"), shortToBiome, colorToShort);
+        biomeArray = biomesFromColorImage(ImagesLoader.INSTANCE.getImage(image), colorToShort);
     }
 
-    private short[][] biomesFromColorImage(BufferedImage biomes, Map<Short, Biome> shortToBiome, Map<Color, Short> colorToShort) {
+    private short[][] biomesFromColorImage(BufferedImage biomes, Map<Color, Short> colorToShort) {
         List<Color> colorsIveComplainedAbout = new ArrayList<>();
 
         Raster raster = biomes.getRaster();

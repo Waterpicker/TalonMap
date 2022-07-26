@@ -2,9 +2,12 @@ package me.talonos.talonmap.world;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import me.talonos.talonmap.ImagesLoader;
 import me.talonos.talonmap.data.ImageData;
+import me.talonos.talonmap.lib.ImageUtil;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.registry.Registry;
@@ -33,15 +36,15 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
             instance.group((BiomeSource.CODEC.fieldOf("biome_source")).forGetter(noiseChunkGenerator -> noiseChunkGenerator.populationSource),
                     Codec.LONG.fieldOf("seed").stable().forGetter(noiseChunkGenerator -> noiseChunkGenerator.seed),
                     ChunkGeneratorSettings.REGISTRY_CODEC.fieldOf("settings").forGetter(noiseChunkGenerator -> noiseChunkGenerator.settings),
-                    ImageData.CODEC.fieldOf("data").forGetter(a -> a.data))
+                    Identifier.CODEC.fieldOf("image").forGetter(a -> a.image))
                     .apply(instance, instance.stable(ImageChunkGenerator::new)));
     private short[][] heightMapArray;
-    private ImageData data;
+    private Identifier image;
 
-    public ImageChunkGenerator(BiomeSource biomeSource, long seed, Supplier<ChunkGeneratorSettings> settings, ImageData data) {
+    public ImageChunkGenerator(BiomeSource biomeSource, long seed, Supplier<ChunkGeneratorSettings> settings, Identifier image) {
         super(biomeSource, seed, settings);
-        heightMapArray = heightMapFromGrayscaleImage(data.image("heightmap"));
-        this.data = data;
+        heightMapArray = heightMapFromGrayscaleImage(ImagesLoader.INSTANCE.getImage(image));
+        this.image = image;
     }
 
     private short[][] heightMapFromGrayscaleImage(BufferedImage imageToOperate) {
