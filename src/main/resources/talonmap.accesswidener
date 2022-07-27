@@ -1,5 +1,3 @@
 accessWidener   v1	named
 extendable class net/minecraft/world/gen/chunk/NoiseChunkGenerator
 accessible field net/minecraft/world/gen/chunk/NoiseChunkGenerator seed J
-extendable method net/minecraft/world/gen/chunk/NoiseChunkGenerator sampleHeightmap (II[Lnet/minecraft/block/BlockState;Ljava/util/function/Predicate;)I
-extendable method net/minecraft/client/world/GeneratorType <init> (Ljava/lang/String;)V

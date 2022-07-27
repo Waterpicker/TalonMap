@@ -116,7 +116,7 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
         ChunkPos chunkPos2 = chunk.getPos();
         int k = chunkPos2.getStartX();
         int l = chunkPos2.getStartZ();
-        double d = 0.0625;
+
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         for (int m = 0; m < 16; ++m) {
             for (int n = 0; n < 16; ++n) {
