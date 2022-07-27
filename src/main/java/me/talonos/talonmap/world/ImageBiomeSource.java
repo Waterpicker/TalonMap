@@ -4,8 +4,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import it.unimi.dsi.fastutil.objects.Object2ShortArrayMap;
 import it.unimi.dsi.fastutil.shorts.Short2ObjectArrayMap;
-import me.talonos.talonmap.ImagesLoader;
-import me.talonos.talonmap.lib.ImageUtil;
+import me.talonos.talonmap.lib.ImagesLoader;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.dynamic.RegistryLookupCodec;
 import net.minecraft.util.registry.Registry;
@@ -32,17 +31,18 @@ public class ImageBiomeSource extends BiomeSource {
             BIOME_KEY_CODEC.optionalFieldOf("filler", BiomeKeys.THE_VOID).forGetter(a -> a.filler),
             RegistryLookupCodec.of(Registry.BIOME_KEY).forGetter(vanillaLayeredBiomeSource -> vanillaLayeredBiomeSource.biomeRegistry))
             .apply(instance, ImageBiomeSource::new));
+
     private final Biome biomeFiller;
-    private Identifier image;
-    private Map<Color, RegistryKey<Biome>> mappings;
+    private final Identifier image;
+    private final Map<Color, RegistryKey<Biome>> mappings;
     private final RegistryKey<Biome> filler;
 
-    private short[][] biomeArray;
+    private final short[][] biomeArray;
 
     public static final Map<Color, Short> colorToShort = new Object2ShortArrayMap<>();
     public static final Map<Short, Biome> shortToBiome = new Short2ObjectArrayMap<>();
 
-    private Registry<Biome> biomeRegistry;
+    private final Registry<Biome> biomeRegistry;
 
     public ImageBiomeSource(Identifier image, Map<Color, RegistryKey<Biome>> mappings, RegistryKey<Biome> filler, Registry<Biome> biomeRegistry) {
         super(Stream.concat(mappings.values().stream(), Stream.of(filler)).map(registryKey -> () -> biomeRegistry.getOrThrow(registryKey)));
@@ -52,42 +52,40 @@ public class ImageBiomeSource extends BiomeSource {
 
         this.filler = filler;
         this.biomeFiller = biomeRegistry.getOrThrow(filler);
-        short talonMapInternalBiomeId = 0;
+        short biomeIdMap = 0;
 
         for (Map.Entry<Color, RegistryKey<Biome>> i : mappings.entrySet()) {
-            Biome m = biomeRegistry.getOrThrow(mappings.get(i.getKey()));
-            colorToShort.put(i.getKey(), talonMapInternalBiomeId);
-//            LogManager.getLogger(Constants.MODID).debug(Biome.REGISTRY.getObject(new ResourceLocation(m.name)));
-            shortToBiome.put(talonMapInternalBiomeId, m);
-            talonMapInternalBiomeId++;
+            Biome m = biomeRegistry.getOrEmpty(mappings.get(i.getKey())).orElse(biomeFiller);
+            colorToShort.put(i.getKey(), biomeIdMap);
+            shortToBiome.put(biomeIdMap, m);
+            biomeIdMap++;
         }
 
-        biomeArray = biomesFromColorImage(ImagesLoader.INSTANCE.getImage(image), colorToShort);
+        biomeArray = extractBiomes(ImagesLoader.getImage(image));
     }
 
-    private short[][] biomesFromColorImage(BufferedImage biomes, Map<Color, Short> colorToShort) {
-        List<Color> colorsIveComplainedAbout = new ArrayList<>();
+    private short[][] extractBiomes(BufferedImage biomes) {
+        List<Color> incorrectColors = new ArrayList<>();
 
         Raster raster = biomes.getRaster();
 
-        short[][] toReturn = new short[raster.getWidth()][raster.getHeight()];
+        short[][] biomeArry = new short[raster.getWidth()][raster.getHeight()];
 
         for (int x = 0; x < raster.getWidth(); x++) {
             for (int y = 0; y < raster.getHeight(); y++) {
                 Color biomeColor = new Color(biomes.getRGB(x,y));
-                if (colorToShort.get(biomeColor) != null) {
-                    toReturn[x][y] = colorToShort.get(biomeColor);
+                if (ImageBiomeSource.colorToShort.get(biomeColor) != null) {
+                    biomeArry[x][y] = ImageBiomeSource.colorToShort.get(biomeColor);
                 } else {
-                    //Prevent 14 million lines of console spam if something goes wrong.
-                    if (!colorsIveComplainedAbout.contains(biomeColor)) {
-                        LogManager.getLogger("talonmap").warn("Talonmap: Color not found: " + biomeColor + " ("  + x + ", " + y + ")");
-                        colorsIveComplainedAbout.add(biomeColor);
+                    if (!incorrectColors.contains(biomeColor)) {
+                        LogManager.getLogger("talonmap").warn("Talonmap: Color "+ colourToString(biomeColor) +" not found at ("  + x + ", " + y + ")");
+                        incorrectColors.add(biomeColor);
                     }
                 }
             }
         }
 
-        return toReturn;
+        return biomeArry;
     }
 
 
@@ -103,14 +101,11 @@ public class ImageBiomeSource extends BiomeSource {
 
     @Override
     public Biome getBiomeForNoiseGen(int biomeX, int biomeY, int biomeZ) {
-        //TODO: Properly get fill worker.
-            if (contains(biomeX, biomeZ, 0, 0, biomeArray.length-1, biomeArray[0].length-1)) {
-//                System.out.println(biomeX + " , " + biomeZ + " = " + biomeArray[biomeX][biomeZ]);
-
-                return shortToBiome.get(biomeArray[biomeX][biomeZ]);
-            } else {
-                return biomeFiller;
-            }
+        if (contains(biomeX, biomeZ, 0, 0, biomeArray.length-1, biomeArray[0].length-1)) {
+            return shortToBiome.get(biomeArray[biomeX][biomeZ]);
+        } else {
+            return biomeFiller;
+        }
     }
 
     public static boolean contains(int x, int y, int xPos, int yPos, int width, int height) {

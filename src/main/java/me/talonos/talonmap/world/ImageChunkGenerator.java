@@ -2,9 +2,7 @@ package me.talonos.talonmap.world;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import me.talonos.talonmap.ImagesLoader;
-import me.talonos.talonmap.data.ImageData;
-import me.talonos.talonmap.lib.ImageUtil;
+import me.talonos.talonmap.lib.ImagesLoader;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.util.Identifier;
@@ -38,28 +36,28 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
                     ChunkGeneratorSettings.REGISTRY_CODEC.fieldOf("settings").forGetter(noiseChunkGenerator -> noiseChunkGenerator.settings),
                     Identifier.CODEC.fieldOf("image").forGetter(a -> a.image))
                     .apply(instance, instance.stable(ImageChunkGenerator::new)));
-    private short[][] heightMapArray;
-    private Identifier image;
+
+    private final short[][] heightMapArray;
+    private final Identifier image;
 
     public ImageChunkGenerator(BiomeSource biomeSource, long seed, Supplier<ChunkGeneratorSettings> settings, Identifier image) {
         super(biomeSource, seed, settings);
-        heightMapArray = heightMapFromGrayscaleImage(ImagesLoader.INSTANCE.getImage(image));
+        heightMapArray = extractHeightmap(ImagesLoader.getImage(image));
         this.image = image;
     }
 
-    private short[][] heightMapFromGrayscaleImage(BufferedImage imageToOperate) {
-        //We could make this more memory efficient in large worlds by making this a byte, but
-        //I don't want to have to deal with converting signed bytes to unsigned and vice versa.
-        short[][] toReturn = new short[imageToOperate.getWidth(null)][imageToOperate.getHeight(null)];
-        WritableRaster r = imageToOperate.getRaster();
-        for (int z = 0; z < toReturn[0].length; z++)
+    private short[][] extractHeightmap(BufferedImage image) {
+        //TODO: Convert to using bytes?
+        short[][] heightMapData = new short[image.getWidth()][image.getHeight()];
+        WritableRaster r = image.getRaster();
+        for (int z = 0; z < heightMapData[0].length; z++)
         {
-            for (int x = 0; x < toReturn.length; x++)
+            for (int x = 0; x < heightMapData.length; x++)
             {
-                toReturn[x][z]=(short)r.getSample(x, z, 0);
+                heightMapData[x][z]=(short)r.getSample(x, z, 0);
             }
         }
-        return toReturn;
+        return heightMapData;
     }
 
     @Override
@@ -127,6 +125,7 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
             }
         }
 
+        //Todo: customize bedrock generation
         for (BlockPos pos : BlockPos.iterate(i, 0, j, i + 15, 0, j + 15)) {
             chunk.setBlockState(pos, Blocks.BEDROCK.getDefaultState(), false);
         }
@@ -134,8 +133,8 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
 
     public void populateNoise(WorldAccess world, StructureAccessor accessor, Chunk chunk) {
         BlockPos.Mutable mutable = new BlockPos.Mutable();
-        Heightmap heightmap = chunk.getHeightmap(Heightmap.Type.OCEAN_FLOOR_WG);
-        Heightmap heightmap2 = chunk.getHeightmap(Heightmap.Type.WORLD_SURFACE_WG);
+        Heightmap ocean_floor = chunk.getHeightmap(Heightmap.Type.OCEAN_FLOOR_WG);
+        Heightmap world_surface = chunk.getHeightmap(Heightmap.Type.WORLD_SURFACE_WG);
 
         int chunkX = chunk.getPos().x;
         int chunkZ = chunk.getPos().z;
@@ -153,8 +152,8 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
                     }
 
                     chunk.setBlockState(mutable.set(x, y, z), blockState, false);
-                    heightmap.trackUpdate(x, y, z, blockState);
-                    heightmap2.trackUpdate(x, y, z, blockState);
+                    ocean_floor.trackUpdate(x, y, z, blockState);
+                    world_surface.trackUpdate(x, y, z, blockState);
                 }
             }
         }

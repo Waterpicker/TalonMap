@@ -11,12 +11,9 @@
   "environment": "*",
   "entrypoints": {
     "main": [
-      "me.talonos.talonmap.Talonmap"
+      "me.talonos.talonmap.TalonMap"
     ]
   },
-  "mixins": [
-    "talonmap.mixins.json"
-  ],
   "accessWidener": "talonmap.accesswidener",
   "depends": {
     "fabricloader": ">=0.14.8",
