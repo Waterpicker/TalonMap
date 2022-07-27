@@ -3,15 +3,24 @@ package me.talonos.talonmap;
 import me.talonos.talonmap.lib.ImagesLoader;
 import me.talonos.talonmap.world.ImageBiomeSource;
 import me.talonos.talonmap.world.ImageChunkGenerator;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
-import net.minecraft.resource.ResourceType;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.AddReloadListenerEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
-public class TalonMap implements ModInitializer {
+@Mod("talonmap")
+public class TalonMap {
+    public TalonMap() {
+        MinecraftForge.EVENT_BUS.addListener(this::resourceLoad);
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onInitialize);
+    }
 
-    @Override
-    public void onInitialize() {
-        ResourceManagerHelper.get(ResourceType.SERVER_DATA).registerReloadListener(ImagesLoader.INSTANCE);
+    public void resourceLoad(AddReloadListenerEvent event) {
+        event.addListener(ImagesLoader.INSTANCE);
+    }
+
+    public void onInitialize(FMLCommonSetupEvent event) {
         ImageChunkGenerator.init();
         ImageBiomeSource.init();
     };

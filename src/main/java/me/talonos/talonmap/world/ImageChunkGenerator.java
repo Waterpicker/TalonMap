@@ -3,44 +3,40 @@ package me.talonos.talonmap.world;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import me.talonos.talonmap.lib.ImagesLoader;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.registry.Registry;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.ChunkRegion;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ProtoChunk;
-import net.minecraft.world.gen.ChunkRandom;
-import net.minecraft.world.gen.StructureAccessor;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
-import net.minecraft.world.gen.chunk.NoiseChunkGenerator;
-import net.minecraft.world.gen.chunk.VerticalBlockSample;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.WorldGenRegion;
+import net.minecraft.world.level.*;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.ProtoChunk;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
+import net.minecraft.world.level.levelgen.WorldgenRandom;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 import java.util.function.Supplier;
 
-public class ImageChunkGenerator extends NoiseChunkGenerator {
-    private static final BlockState AIR = Blocks.AIR.getDefaultState();
+public class ImageChunkGenerator extends NoiseBasedChunkGenerator {
+    private static final BlockState AIR = Blocks.AIR.defaultBlockState();
 
     public static final Codec<ImageChunkGenerator> CODEC = RecordCodecBuilder.create(instance ->
-            instance.group((BiomeSource.CODEC.fieldOf("biome_source")).forGetter(noiseChunkGenerator -> noiseChunkGenerator.populationSource),
-                    Codec.LONG.fieldOf("seed").stable().forGetter(noiseChunkGenerator -> noiseChunkGenerator.seed),
-                    ChunkGeneratorSettings.REGISTRY_CODEC.fieldOf("settings").forGetter(noiseChunkGenerator -> noiseChunkGenerator.settings),
-                    Identifier.CODEC.fieldOf("image").forGetter(a -> a.image))
+            instance.group((BiomeSource.CODEC.fieldOf("biome_source")).forGetter(noiseChunkGenerator -> noiseChunkGenerator.biomeSource), 
+                            Codec.LONG.fieldOf("seed").stable().forGetter(noiseChunkGenerator -> noiseChunkGenerator.seed),
+                            NoiseGeneratorSettings.CODEC.fieldOf("settings").forGetter(noiseChunkGenerator -> noiseChunkGenerator.settings), 
+                            ResourceLocation.CODEC.fieldOf("image").forGetter(a -> a.image))
                     .apply(instance, instance.stable(ImageChunkGenerator::new)));
 
     private final short[][] heightMapArray;
-    private final Identifier image;
+    private final ResourceLocation image;
 
-    public ImageChunkGenerator(BiomeSource biomeSource, long seed, Supplier<ChunkGeneratorSettings> settings, Identifier image) {
+    public ImageChunkGenerator(BiomeSource biomeSource, long seed, Supplier<NoiseGeneratorSettings> settings, ResourceLocation image) {
         super(biomeSource, seed, settings);
         heightMapArray = extractHeightmap(ImagesLoader.getImage(image));
         this.image = image;
@@ -61,17 +57,12 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
     }
 
     @Override
-    protected Codec<? extends ChunkGenerator> getCodec() {
+    protected Codec<? extends ChunkGenerator> codec() {
         return CODEC;
     }
 
     @Override
-    public int getHeightInGround(int x, int z, Heightmap.Type heightmapType) {
-        return super.getHeightInGround(x, z, heightmapType);
-    }
-
-    @Override
-    public int getHeight(int x, int z, Heightmap.Type heightmapType) {
+    public int getBaseHeight(int x, int z, Heightmap.Types heightmapType) {
         return getHeight(x, z);
     }
 
@@ -93,7 +84,7 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
     }
 
     @Override
-    public BlockView getColumnSample(int x, int z) {
+    public BlockGetter getBaseColumn(int x, int z) {
         int height = Math.max(getHeight(x,z), getSeaLevel());
         BlockState[] states = new BlockState[height];
 
@@ -101,40 +92,40 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
             states[i] = getBlockState(i, height);
         }
 
-        return new VerticalBlockSample(states);
+        return new NoiseColumn(states);
     }
 
     @Override
-    public void buildSurface(ChunkRegion region, Chunk chunk) {
+    public void buildSurfaceAndBedrock(WorldGenRegion region, ChunkAccess chunk) {
         ChunkPos chunkPos = chunk.getPos();
         int i = chunkPos.x;
         int j = chunkPos.z;
-        ChunkRandom chunkRandom = new ChunkRandom();
-        chunkRandom.setTerrainSeed(i, j);
+        WorldgenRandom chunkRandom = new WorldgenRandom();
+        chunkRandom.setBaseChunkSeed(i, j);
         ChunkPos chunkPos2 = chunk.getPos();
-        int k = chunkPos2.getStartX();
-        int l = chunkPos2.getStartZ();
+        int k = chunkPos2.getMinBlockX();
+        int l = chunkPos2.getMinBlockZ();
 
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         for (int m = 0; m < 16; ++m) {
             for (int n = 0; n < 16; ++n) {
                 int o = k + m;
                 int p = l + n;
-                int q = chunk.sampleHeightmap(Heightmap.Type.WORLD_SURFACE_WG, m, n) + 1;
-                region.getBiome(mutable.set(k + m, q, l + n)).buildSurface(chunkRandom, chunk, o, p, q, 0, this.defaultBlock, this.defaultFluid, this.getSeaLevel(), region.getSeed());
+                int q = chunk.getHeight(Heightmap.Types.WORLD_SURFACE_WG, m, n) + 1;
+                region.getBiome(mutable.set(k + m, q, l + n)).buildSurfaceAt(chunkRandom, chunk, o, p, q, 0, this.defaultBlock, this.defaultFluid, this.getSeaLevel(), region.getSeed());
             }
         }
 
         //Todo: customize bedrock generation
-        for (BlockPos pos : BlockPos.iterate(i, 0, j, i + 15, 0, j + 15)) {
-            chunk.setBlockState(pos, Blocks.BEDROCK.getDefaultState(), false);
+        for (BlockPos pos : BlockPos.betweenClosed(i, 0, j, i + 15, 0, j + 15)) {
+            chunk.setBlockState(pos, Blocks.BEDROCK.defaultBlockState(), false);
         }
     }
 
-    public void populateNoise(WorldAccess world, StructureAccessor accessor, Chunk chunk) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
-        Heightmap ocean_floor = chunk.getHeightmap(Heightmap.Type.OCEAN_FLOOR_WG);
-        Heightmap world_surface = chunk.getHeightmap(Heightmap.Type.WORLD_SURFACE_WG);
+    public void fillFromNoise(LevelAccessor world, StructureFeatureManager accessor, ChunkAccess chunk) {
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        Heightmap ocean_floor = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.OCEAN_FLOOR_WG);
+        Heightmap world_surface = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.WORLD_SURFACE_WG);
 
         int chunkX = chunk.getPos().x;
         int chunkZ = chunk.getPos().z;
@@ -146,14 +137,14 @@ public class ImageChunkGenerator extends NoiseChunkGenerator {
                 for (int y = 0; y < Math.max(height, getSeaLevel()); ++y) {
                     BlockState blockState = getBlockState(y, height);
                     if (blockState == AIR) continue;
-                    if (blockState.getLuminance() != 0) {
+                    if (blockState.getLightEmission() != 0) {
                         mutable.set(x,y,z);
-                        ((ProtoChunk) chunk).addLightSource(mutable);
+                        ((ProtoChunk) chunk).addLight(mutable);
                     }
 
                     chunk.setBlockState(mutable.set(x, y, z), blockState, false);
-                    ocean_floor.trackUpdate(x, y, z, blockState);
-                    world_surface.trackUpdate(x, y, z, blockState);
+                    ocean_floor.update(x, y, z, blockState);
+                    world_surface.update(x, y, z, blockState);
                 }
             }
         }

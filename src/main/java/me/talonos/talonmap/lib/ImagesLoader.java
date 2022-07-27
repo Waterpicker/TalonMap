@@ -1,10 +1,10 @@
 package me.talonos.talonmap.lib;
 
-import net.fabricmc.fabric.api.resource.SimpleResourceReloadListener;
-import net.minecraft.resource.Resource;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.profiler.Profiler;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.PreparableReloadListener;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.util.profiling.ProfilerFiller;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -15,31 +15,24 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-public class ImagesLoader implements SimpleResourceReloadListener<Map<Identifier, BufferedImage>> {
+public class ImagesLoader implements PreparableReloadListener {
     public static final ImagesLoader INSTANCE = new ImagesLoader();
 
     private static final BufferedImage DEFAULT = new BufferedImage(BufferedImage.TYPE_BYTE_GRAY, 1, 1);
-    private static Map<Identifier, BufferedImage> images = new HashMap<>();
+    private static Map<ResourceLocation, BufferedImage> images = new HashMap<>();
 
-    private final Identifier id = new Identifier("talonmap:map_images");
-    @Override
-    public Identifier getFabricId() {
-        return id;
-    }
-
-    public static BufferedImage getImage(Identifier id) {
+    public static BufferedImage getImage(ResourceLocation id) {
         return images.getOrDefault(id, DEFAULT);
     }
 
-    @Override
-    public CompletableFuture<Map<Identifier, BufferedImage>> load(ResourceManager manager, Profiler profiler, Executor executor) {
+    public CompletableFuture<Map<ResourceLocation, BufferedImage>> load(ResourceManager manager, ProfilerFiller profiler, Executor executor) {
         return CompletableFuture.supplyAsync(() -> {
-            Map<Identifier, BufferedImage> map = new HashMap<>();
+            Map<ResourceLocation, BufferedImage> map = new HashMap<>();
 
-            Collection<Identifier> resources = manager.findResources("dimension/images", a -> a.endsWith(".png"));
+            Collection<ResourceLocation> resources = manager.listResources("dimension/images", a -> a.endsWith(".png"));
 
-            for (Identifier fileId : resources) {
-                Identifier id = new Identifier(fileId.getNamespace(), fileId.getPath().replace("dimension/images/", ""));
+            for (ResourceLocation fileId : resources) {
+                ResourceLocation id = new ResourceLocation(fileId.getNamespace(), fileId.getPath().replace("dimension/images/", ""));
 
                 try {
                     Resource resource = manager.getResource(fileId);
@@ -56,8 +49,14 @@ public class ImagesLoader implements SimpleResourceReloadListener<Map<Identifier
         });
     }
 
-    @Override
-    public CompletableFuture<Void> apply(Map<Identifier, BufferedImage> data, ResourceManager manager, Profiler profiler, Executor executor) {
+    public CompletableFuture<Void> apply(Map<ResourceLocation, BufferedImage> data, ResourceManager manager, ProfilerFiller profiler, Executor executor) {
         return CompletableFuture.runAsync(() -> images = data);
+    }
+
+    @Override
+    public CompletableFuture<Void> reload(PreparationBarrier helper, ResourceManager manager, ProfilerFiller loadProfiler, ProfilerFiller applyProfiler, Executor loadExecutor, Executor applyExecutor) {
+        return load(manager, loadProfiler, loadExecutor).thenCompose(helper::wait).thenCompose(
+                (o) -> apply(o, manager, applyProfiler, applyExecutor)
+        );
     }
 }
