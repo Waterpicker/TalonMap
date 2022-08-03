@@ -5,13 +5,13 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import it.unimi.dsi.fastutil.objects.Object2ShortArrayMap;
 import it.unimi.dsi.fastutil.shorts.Short2ObjectArrayMap;
 import me.talonos.talonmap.lib.ImagesLoader;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.dynamic.RegistryLookupCodec;
-import net.minecraft.util.registry.Registry;
-import net.minecraft.util.registry.RegistryKey;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.BiomeKeys;
-import net.minecraft.world.biome.source.BiomeSource;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.RegistryLookupCodec;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.biome.Biomes;
 import org.apache.logging.log4j.LogManager;
 
 import java.awt.*;
@@ -23,19 +23,19 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 public class ImageBiomeSource extends BiomeSource {
-    private static final Codec<RegistryKey<Biome>> BIOME_KEY_CODEC = Identifier.CODEC.xmap(RegistryKey.createKeyFactory(Registry.BIOME_KEY), RegistryKey::getValue);
+    private static final Codec<ResourceKey<Biome>> BIOME_KEY_CODEC = ResourceLocation.CODEC.xmap(ResourceKey.elementKey(Registry.BIOME_REGISTRY), ResourceKey::location);
 
     public static final Codec<ImageBiomeSource> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Identifier.CODEC.fieldOf("image").forGetter(a -> a.image),
+            ResourceLocation.CODEC.fieldOf("image").forGetter(a -> a.image),
             Codec.unboundedMap(Codec.STRING.xmap(Color::decode, ImageBiomeSource::colourToString), BIOME_KEY_CODEC).fieldOf("mappings").forGetter(a -> a.mappings),
-            BIOME_KEY_CODEC.optionalFieldOf("filler", BiomeKeys.THE_VOID).forGetter(a -> a.filler),
-            RegistryLookupCodec.of(Registry.BIOME_KEY).forGetter(vanillaLayeredBiomeSource -> vanillaLayeredBiomeSource.biomeRegistry))
+            BIOME_KEY_CODEC.optionalFieldOf("filler", Biomes.THE_VOID).forGetter(a -> a.filler),
+            RegistryLookupCodec.create(Registry.BIOME_REGISTRY).forGetter(vanillaLayeredBiomeSource -> vanillaLayeredBiomeSource.biomeRegistry))
             .apply(instance, ImageBiomeSource::new));
 
     private final Biome biomeFiller;
-    private final Identifier image;
-    private final Map<Color, RegistryKey<Biome>> mappings;
-    private final RegistryKey<Biome> filler;
+    private final ResourceLocation image;
+    private final Map<Color, ResourceKey<Biome>> mappings;
+    private final ResourceKey<Biome> filler;
 
     private final short[][] biomeArray;
 
@@ -44,8 +44,8 @@ public class ImageBiomeSource extends BiomeSource {
 
     private final Registry<Biome> biomeRegistry;
 
-    public ImageBiomeSource(Identifier image, Map<Color, RegistryKey<Biome>> mappings, RegistryKey<Biome> filler, Registry<Biome> biomeRegistry) {
-        super(Stream.concat(mappings.values().stream(), Stream.of(filler)).map(registryKey -> () -> biomeRegistry.getOrThrow(registryKey)));
+    public ImageBiomeSource(ResourceLocation image, Map<Color, ResourceKey<Biome>> mappings, ResourceKey<Biome> filler, Registry<Biome> biomeRegistry) {
+        super(Stream.concat(mappings.values().stream(), Stream.of(filler)).map(ResourceKey -> () -> biomeRegistry.getOrThrow(ResourceKey)));
         this.image = image;
         this.mappings = mappings;
         this.biomeRegistry = biomeRegistry;
@@ -54,8 +54,8 @@ public class ImageBiomeSource extends BiomeSource {
         this.biomeFiller = biomeRegistry.getOrThrow(filler);
         short biomeIdMap = 0;
 
-        for (Map.Entry<Color, RegistryKey<Biome>> i : mappings.entrySet()) {
-            Biome m = biomeRegistry.getOrEmpty(mappings.get(i.getKey())).orElse(biomeFiller);
+        for (Map.Entry<Color, ResourceKey<Biome>> i : mappings.entrySet()) {
+            Biome m = biomeRegistry.getOptional(mappings.get(i.getKey())).orElse(biomeFiller);
             colorToShort.put(i.getKey(), biomeIdMap);
             shortToBiome.put(biomeIdMap, m);
             biomeIdMap++;
@@ -90,7 +90,7 @@ public class ImageBiomeSource extends BiomeSource {
 
 
     @Override
-    protected Codec<? extends BiomeSource> getCodec() {
+    protected Codec<? extends BiomeSource> codec() {
         return CODEC;
     }
 
@@ -100,9 +100,9 @@ public class ImageBiomeSource extends BiomeSource {
     }
 
     @Override
-    public Biome getBiomeForNoiseGen(int biomeX, int biomeY, int biomeZ) {
-        if (contains(biomeX, biomeZ, 0, 0, biomeArray.length-1, biomeArray[0].length-1)) {
-            return shortToBiome.get(biomeArray[biomeX][biomeZ]);
+    public Biome getNoiseBiome(int x, int y, int z) {
+        if (contains(x, z, 0, 0, biomeArray.length-1, biomeArray[0].length-1)) {
+            return shortToBiome.get(biomeArray[x][z]);
         } else {
             return biomeFiller;
         }
